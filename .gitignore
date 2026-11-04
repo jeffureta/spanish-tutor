@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local Tutor Database & State
+.tutor/
+*.db
+*.sqlite3
+
+# Environments & Secrets
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+
+# IDEs & Editor metadata
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Agent / Tooling local caches
+.gemini/
