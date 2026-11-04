@@ -178,6 +178,33 @@ class TestTutorDB(unittest.TestCase):
         self.assertEqual(m_count, 1)
         conn.close()
 
+    def test_batch_sync_with_new_vocab_and_spanish_key_reviews(self):
+        payload = {
+            "new_vocab": [
+                {"spanish": "la toalla", "english": "the towel", "category": "hotel"},
+                {"spanish": "el jabón", "english": "the soap", "category": "hotel"}
+            ],
+            "reviews": [
+                {"spanish": "la toalla", "quality_score": 5, "user_response": "la toalla", "feedback": "Perfect"},
+                {"spanish": "el jabón", "quality_score": 4, "user_response": "el jabon", "feedback": "Watch accent"}
+            ],
+            "xp": 20
+        }
+        res = tutor_db.batch_sync(payload, print_output=False)
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["processed_new_vocab_count"], 2)
+        self.assertEqual(res["processed_reviews_count"], 2)
+
+        # Verify db state
+        conn = tutor_db.get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT repetition_count, interval_days FROM vocabulary WHERE spanish = 'la toalla'")
+        v = cur.fetchone()
+        self.assertIsNotNone(v)
+        self.assertEqual(v["repetition_count"], 1)
+        self.assertEqual(v["interval_days"], 1)
+        conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()

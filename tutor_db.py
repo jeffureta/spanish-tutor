@@ -377,9 +377,14 @@ def batch_sync(payload, print_output=True):
     Reduces agent subprocess calls from N calls to 1 call at milestone/conclusion steps.
     Payload format:
     {
+        "new_vocab": [
+            {"spanish": "la llave", "english": "the key", "category": "hotel"},
+            ...
+        ],
         "reviews": [
             {"vocab_id": 1, "quality_score": 5, "user_response": "...", "feedback": "..."},
-            ...
+            # Or identify review target by spanish word directly:
+            {"spanish": "la llave", "quality_score": 5, "user_response": "la llave", "feedback": "Good"}
         ],
         "settings": {
             "session_step": 3,
@@ -398,6 +403,7 @@ def batch_sync(payload, print_output=True):
     """
     now_dt = datetime.now(timezone.utc)
     now = now_dt.isoformat()
+    processed_new_vocab = []
     processed_reviews = []
     processed_settings = {}
     logged_mission = None
@@ -406,16 +412,51 @@ def batch_sync(payload, print_output=True):
     with get_connection() as conn:
         cursor = conn.cursor()
 
-        # 1. Process reviews
+        # 1. Process new_vocab ingestion
+        for item in payload.get("new_vocab", []):
+            sp = item.get("spanish", "").strip()
+            en = item.get("english", "").strip()
+            cat = item.get("category", "general")
+            if not sp or not en:
+                continue
+            cursor.execute("SELECT id FROM vocabulary WHERE spanish = ?", (sp,))
+            existing = cursor.fetchone()
+            if existing:
+                vocab_id = existing["id"]
+            else:
+                cursor.execute("""
+                INSERT INTO vocabulary (spanish, english, category, repetition_count, ease_factor, interval_days, next_review_at, created_at)
+                VALUES (?, ?, ?, 0, 2.5, 0, ?, ?)
+                """, (sp, en, cat, now, now))
+                vocab_id = cursor.lastrowid
+
+            processed_new_vocab.append({
+                "vocab_id": vocab_id,
+                "spanish": sp,
+                "english": en,
+                "category": cat
+            })
+
+        # 2. Process reviews (supports vocab_id or spanish word)
         for review in payload.get("reviews", []):
             vocab_id = review.get("vocab_id")
+            sp_word = review.get("spanish")
             quality_score = review.get("quality_score", 3)
             user_response = review.get("user_response", "")
             feedback = review.get("feedback", "")
 
-            cursor.execute("SELECT repetition_count, ease_factor, interval_days FROM vocabulary WHERE id = ?", (vocab_id,))
-            vocab = cursor.fetchone()
-            if vocab:
+            if vocab_id is None and sp_word:
+                cursor.execute("SELECT id, repetition_count, ease_factor, interval_days FROM vocabulary WHERE spanish = ?", (sp_word.strip(),))
+                vocab = cursor.fetchone()
+                if vocab:
+                    vocab_id = vocab["id"]
+            elif vocab_id is not None:
+                cursor.execute("SELECT id, repetition_count, ease_factor, interval_days FROM vocabulary WHERE id = ?", (vocab_id,))
+                vocab = cursor.fetchone()
+            else:
+                vocab = None
+
+            if vocab and vocab_id is not None:
                 quality = max(0, min(5, int(quality_score)))
                 rep_count, ef, interval = sm2_algorithm(
                     quality,
@@ -492,6 +533,8 @@ def batch_sync(payload, print_output=True):
 
     result = {
         "status": "success",
+        "processed_new_vocab_count": len(processed_new_vocab),
+        "processed_new_vocab": processed_new_vocab,
         "processed_reviews_count": len(processed_reviews),
         "processed_reviews": processed_reviews,
         "processed_settings": processed_settings,

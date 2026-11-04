@@ -45,8 +45,8 @@ python3 tutor_db.py set-setting feedback_style strict
 python3 tutor_db.py set-setting current_mode drill
 python3 tutor_db.py set-setting cefr_level B1
 
-# Batch sync reviews, settings, and missions atomically (low-latency orchestration)
-python3 tutor_db.py batch-sync '{"reviews":[{"vocab_id":1,"quality_score":5}],"xp":25}'
+# Batch sync reviews, new vocabulary, settings, and missions atomically (low-latency orchestration)
+python3 tutor_db.py batch-sync '{"new_vocab":[{"spanish":"la toalla","english":"the towel","category":"hotel"}],"reviews":[{"spanish":"la toalla","quality_score":5}],"xp":25,"mission":{"title":"Hotel Service","cefr_level":"A2","scenario_description":"Request towels","score":95}}'
 
 # View vocabulary due for review
 python3 tutor_db.py get-due-vocab
