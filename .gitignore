@@ -24,4 +24,6 @@ env/
 .DS_Store
 
 # Agent / Tooling local caches
-.gemini/
+.gemini/*
+!.gemini/skills/
+!.gemini/skills/**
