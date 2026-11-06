@@ -40,8 +40,9 @@ python3 tutor_db.py get-session-summary
 # View active settings
 python3 tutor_db.py get-settings
 
-# Update settings directly (feedback_style, language_ratio, current_mode, cefr_level)
+# Update settings directly (feedback_style, language_ratio, scaffolding_level, current_mode, cefr_level)
 python3 tutor_db.py set-setting feedback_style strict
+python3 tutor_db.py set-setting scaffolding_level none
 python3 tutor_db.py set-setting current_mode drill
 python3 tutor_db.py set-setting cefr_level B1
 
@@ -61,11 +62,12 @@ python3 -m unittest discover -s tests
 ### In-Chat Textual Cues & Commands
 During conversation with the tutor, you can quickly adjust modes and preferences using quick commands or natural language:
 - `!mode <diagnostic|mission|drill|free_chat>`
+- `!scaffold <high|moderate|subtle|none>`
 - `!feedback <gentle|balanced|strict>`
 - `!level <A1|A2|B1|B2|C1>`
 - `!ratio <en_first|bilingual|immersion>`
 - `!refresh` (Force synchronization with database)
-- Or ask naturally: *"Can you be stricter on grammar?"*, *"Let's switch to a quick drill"*.
+- Or ask naturally: *"Can you be stricter on grammar?"*, *"Remove assistance and sentence starters"*, *"Let's switch to a quick drill"*.
 
 ### Anti-Hallucination Best Practices
 - **Mid-Session Compaction**: Run `/compact` after 15–20 turns to compress transcript history.

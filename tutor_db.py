@@ -36,6 +36,7 @@ def init_db(print_output=True):
             total_xp INTEGER DEFAULT 0,
             feedback_style TEXT DEFAULT 'balanced',
             language_ratio TEXT DEFAULT 'en_first',
+            scaffolding_level TEXT DEFAULT 'moderate',
             current_mode TEXT DEFAULT 'diagnostic',
             active_scenario TEXT,
             session_step INTEGER DEFAULT 0,
@@ -49,6 +50,7 @@ def init_db(print_output=True):
         migrations = [
             ("feedback_style", "TEXT DEFAULT 'balanced'"),
             ("language_ratio", "TEXT DEFAULT 'en_first'"),
+            ("scaffolding_level", "TEXT DEFAULT 'moderate'"),
             ("current_mode", "TEXT DEFAULT 'diagnostic'"),
             ("active_scenario", "TEXT"),
             ("session_step", "INTEGER DEFAULT 0"),
@@ -140,7 +142,7 @@ def get_settings(print_output=True):
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-        SELECT feedback_style, language_ratio, current_mode, active_scenario, session_step
+        SELECT feedback_style, language_ratio, scaffolding_level, current_mode, active_scenario, session_step
         FROM user_profile WHERE id = 1
         """)
         row = cursor.fetchone()
@@ -156,18 +158,75 @@ def get_settings(print_output=True):
         return err
 
 
+def evaluate_titration_step(current_scaffold, current_ratio, recent_scores):
+    """
+    Evaluates recent performance scores (SM-2 review scores 0-5 or mission scores >= 90 as 5).
+    Titrates scaffolding down: high -> moderate -> subtle -> none.
+    Once at 'none', titrates language_ratio to deeper immersion: en_first -> bilingual -> immersion.
+    Returns (new_scaffold, new_ratio, changed_bool).
+    """
+    if not recent_scores:
+        return current_scaffold, current_ratio, False
+
+    avg_score = sum(recent_scores) / len(recent_scores)
+    # Require at least 3 reviews with high average (>= 4.2 out of 5)
+    if len(recent_scores) >= 3 and avg_score >= 4.2:
+        scaffold_order = ["high", "moderate", "subtle", "none"]
+        ratio_order = ["en_first", "bilingual", "immersion"]
+
+        curr_scaffold = current_scaffold if current_scaffold in scaffold_order else "moderate"
+        curr_scaffold_idx = scaffold_order.index(curr_scaffold)
+
+        if curr_scaffold_idx < len(scaffold_order) - 1:
+            # Advance (titrate down scaffolding)
+            new_scaffold = scaffold_order[curr_scaffold_idx + 1]
+            return new_scaffold, current_ratio, True
+        else:
+            # Already at 'none', check if language ratio can advance towards immersion
+            curr_ratio = current_ratio if current_ratio in ratio_order else "en_first"
+            curr_ratio_idx = ratio_order.index(curr_ratio)
+            if curr_ratio_idx < len(ratio_order) - 1:
+                new_ratio = ratio_order[curr_ratio_idx + 1]
+                return current_scaffold, new_ratio, True
+
+    return current_scaffold, current_ratio, False
+
+
 def set_setting(key, value, print_output=True):
     allowed_keys = {
         "feedback_style": str,
         "language_ratio": str,
+        "scaffolding_level": str,
         "current_mode": str,
         "active_scenario": str,
         "session_step": int,
         "cefr_level": str,
         "target_focus": str
     }
+    valid_scaffolds = {"high", "moderate", "subtle", "none"}
+    valid_ratios = {"en_first", "bilingual", "immersion"}
+    valid_feedback = {"gentle", "balanced", "strict"}
+
     if key not in allowed_keys:
         err = {"status": "error", "message": f"Invalid setting key: {key}. Allowed: {list(allowed_keys.keys())}"}
+        if print_output:
+            print(json.dumps(err))
+        return err
+
+    if key == "scaffolding_level" and value not in valid_scaffolds:
+        err = {"status": "error", "message": f"Invalid scaffolding_level: {value}. Allowed: {sorted(list(valid_scaffolds))}"}
+        if print_output:
+            print(json.dumps(err))
+        return err
+
+    if key == "language_ratio" and value not in valid_ratios:
+        err = {"status": "error", "message": f"Invalid language_ratio: {value}. Allowed: {sorted(list(valid_ratios))}"}
+        if print_output:
+            print(json.dumps(err))
+        return err
+
+    if key == "feedback_style" and value not in valid_feedback:
+        err = {"status": "error", "message": f"Invalid feedback_style: {value}. Allowed: {sorted(list(valid_feedback))}"}
         if print_output:
             print(json.dumps(err))
         return err
@@ -493,6 +552,7 @@ def batch_sync(payload, print_output=True):
         allowed_keys = {
             "feedback_style": str,
             "language_ratio": str,
+            "scaffolding_level": str,
             "current_mode": str,
             "active_scenario": str,
             "session_step": int,

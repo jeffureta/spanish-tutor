@@ -18,7 +18,7 @@ This skill enables Antigravity to act as your personalized, bilingual Spanish Tu
 2. **Mandatory Ultra-Compact Anchor Banner**:
    - **Every tutor response MUST begin with the single-line anchor banner (~15 tokens):**
      ```markdown
-     `[Level: A2 | XP: 395 | Due: 16 | Mode: Mission | Step: 3/5]`
+     `[Level: A2 | XP: 395 | Due: 16 | Scaffold: none | Mode: Mission | Step: 3/5]`
      ```
    - This keeps the agent strictly anchored to the active level and constraints while consuming minimal token budget. Maintain and increment these values in-memory during active dialogue.
 
@@ -26,13 +26,26 @@ This skill enables Antigravity to act as your personalized, bilingual Spanish Tu
    - The learner can alter session parameters directly in chat using quick commands or natural language:
      - `!mode <diagnostic|mission|drill|free_chat>`
      - `!level <A1|A2|B1|B2|C1>`
+     - `!scaffold <high|moderate|subtle|none>`
      - `!feedback <gentle|balanced|strict>`
      - `!ratio <en_first|bilingual|immersion>`
      - `!refresh` (Forces a re-sync with `python3 tutor_db.py get-session-summary`)
-     - Or natural language (e.g. *"Switch to strict feedback"*, *"Let's do a quick vocab drill"*, *"Set my level to B1"*).
+     - Or natural language (e.g. *"Switch to strict feedback"*, *"Let's do a quick vocab drill"*, *"Remove assistance / hints"*).
    - Update in-memory parameters and re-render the updated banner immediately.
 
-4. **Zero-Turn Delay & Atomic Milestone Persistence**:
+4. **Scaffolding Ladder & Dynamic Titration Rules**:
+   - **Scaffolding Levels**:
+     - `high`: Full glossaries, structured sentence frames (e.g. `Me gustaría ____`), English cues alongside all prompts.
+     - `moderate`: Key sentence frames without direct English word translations.
+     - `subtle`: Minimal single keyword or vocabulary root hint only.
+     - `none`: **Zero Spanish sentence starters or hints.** Questions/prompts present the English communicative goal and Spanish interlocutor speech, expecting the learner to construct the Spanish output independently.
+   - **Dynamic Titration Progression**:
+     - Evaluated at milestone wrap-up / batch-sync:
+       - If the learner achieves 3+ consecutive high-scoring turns (quality $\ge 4$ or mission score $\ge 90$), titrate scaffolding down: `high` $\rightarrow$ `moderate` $\rightarrow$ `subtle` $\rightarrow$ `none`.
+       - When the learner achieves sustained mastery at `scaffolding_level: none`, dynamic titration advances the instruction language: `en_first` $\rightarrow$ `bilingual` $\rightarrow$ `immersion`.
+       - In `immersion` mode, scenario explanations, instructions, and tutor commentary transition into natural Spanish.
+
+5. **Zero-Turn Delay & Atomic Milestone Persistence**:
    - **Strict Zero-Tool Rule during Dialogue:** Do NOT call CLI tools (`record-review`, `set-setting`, `add-vocab`) mid-turn during active conversation.
    - **Evaluate SM-2 In-Memory:** When the user practices a vocabulary item or mission turn, provide the grammar breakdown, score, and SM-2 feedback inline in chat immediately.
    - **Milestone Batch Synchronization:** When completing a mission or ending a drill set, persist all new vocabulary, reviews, settings, XP, and mission logs in a single atomic call:

@@ -205,6 +205,75 @@ class TestTutorDB(unittest.TestCase):
         self.assertEqual(v["interval_days"], 1)
         conn.close()
 
+    def test_scaffolding_setting_and_summary(self):
+        # Default should be moderate
+        summary = tutor_db.get_session_summary(print_output=False)
+        self.assertEqual(summary.get("scaffolding_level"), "moderate")
+
+        # Set to none
+        res = tutor_db.set_setting("scaffolding_level", "none", print_output=False)
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["scaffolding_level"], "none")
+
+        summary = tutor_db.get_session_summary(print_output=False)
+        self.assertEqual(summary["scaffolding_level"], "none")
+
+        # Invalid scaffolding level
+        bad_res = tutor_db.set_setting("scaffolding_level", "invalid_level", print_output=False)
+        self.assertEqual(bad_res["status"], "error")
+
+    def test_titration_step_calculation(self):
+        # Titration step down when scoring high
+        # high -> moderate -> subtle -> none
+        next_scaffold, next_ratio, changed = tutor_db.evaluate_titration_step(
+            current_scaffold="high",
+            current_ratio="en_first",
+            recent_scores=[5, 5, 4]
+        )
+        self.assertTrue(changed)
+        self.assertEqual(next_scaffold, "moderate")
+        self.assertEqual(next_ratio, "en_first")
+
+        # subtle -> none
+        next_scaffold, next_ratio, changed = tutor_db.evaluate_titration_step(
+            current_scaffold="subtle",
+            current_ratio="en_first",
+            recent_scores=[5, 4, 5]
+        )
+        self.assertTrue(changed)
+        self.assertEqual(next_scaffold, "none")
+        self.assertEqual(next_ratio, "en_first")
+
+        # none with en_first -> advances language_ratio to bilingual
+        next_scaffold, next_ratio, changed = tutor_db.evaluate_titration_step(
+            current_scaffold="none",
+            current_ratio="en_first",
+            recent_scores=[5, 5, 5]
+        )
+        self.assertTrue(changed)
+        self.assertEqual(next_scaffold, "none")
+        self.assertEqual(next_ratio, "bilingual")
+
+        # none with bilingual -> advances language_ratio to immersion
+        next_scaffold, next_ratio, changed = tutor_db.evaluate_titration_step(
+            current_scaffold="none",
+            current_ratio="bilingual",
+            recent_scores=[5, 5, 5]
+        )
+        self.assertTrue(changed)
+        self.assertEqual(next_scaffold, "none")
+        self.assertEqual(next_ratio, "immersion")
+
+        # Low scores do not titrate down
+        next_scaffold, next_ratio, changed = tutor_db.evaluate_titration_step(
+            current_scaffold="moderate",
+            current_ratio="en_first",
+            recent_scores=[2, 3, 3]
+        )
+        self.assertFalse(changed)
+        self.assertEqual(next_scaffold, "moderate")
+        self.assertEqual(next_ratio, "en_first")
+
 
 if __name__ == "__main__":
     unittest.main()
