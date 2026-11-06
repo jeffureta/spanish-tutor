@@ -13,10 +13,10 @@ An adaptive, in-IDE Spanish tutoring environment local to this project, built on
    - Zero intimidation: All mission parameters, scenarios, and grammar explanations are provided in English before prompting your Spanish output.
 3. **Local SQLite Persistence**:
    - Your progress, vocabulary mastery, CEFR level, and review schedules are stored locally in `.tutor/state.db`.
-4. **Autonomous 3-Agent System**:
-   - **Tutor Orchestrator**: Your bilingual companion and dialogue partner.
-   - **`tutor-curriculum`**: Designs level-appropriate scenarios and pulls spaced repetition reviews.
-   - **`tutor-assessor`**: Grades responses, breaks down grammatical feedback in plain English, and recalculates review intervals.
+4. **Agent Ecosystem**:
+   - **Spanish Tutor (`spanish-tutor`)**: Learner-facing bilingual companion and dialogue partner.
+   - **Developer / Maintainer Agent (`developer-tutor`)**: Engineering sub-agent responsible for codebase maintenance, feature rollouts, schema migrations, and TDD.
+   - **QA & Issue Triage Agent (`qa-tutor`)**: Quality assurance sub-agent specialized in issue triage, bug reproduction in isolated test databases, and regression suites.
 
 ---
 
